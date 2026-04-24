@@ -1,4 +1,6 @@
 import Vehicle from '../models/Vehicle.js';
+import PoliceStation from '../models/PoliceStation.js';
+import District from '../models/District.js';
 
 // @desc    Register a new Tuk-Tuk
 // @route   POST /api/vehicles
@@ -25,15 +27,39 @@ export const registerVehicle = async (req, res) => {
     }
 };
 
-// @desc    Get all registered Tuk-Tuks (with optional filtering)
+// @desc    Get all registered Tuk-Tuks (with advanced filtering and sorting)
 // @route   GET /api/vehicles
 export const getVehicles = async (req, res) => {
     try {
-        // Allow filtering by stationId if provided in query params (e.g., ?stationId=123)
-        const filter = req.query.stationId ? { registeredStationId: req.query.stationId } : {};
+        const { provinceId, districtId, stationId, sortBy } = req.query;
+        let stationIdsToSearch = [];
 
-        // .populate() automatically fetches the linked Police Station data!
-        const vehicles = await Vehicle.find(filter).populate('registeredStationId', 'name');
+        // Logic to find applicable stations based on Province or District
+        if (provinceId) {
+            const districts = await District.find({ provinceId });
+            const districtIds = districts.map(d => d._id);
+            const stations = await PoliceStation.find({ districtId: { $in: districtIds } });
+            stationIdsToSearch = stations.map(s => s._id);
+        } else if (districtId) {
+            const stations = await PoliceStation.find({ districtId });
+            stationIdsToSearch = stations.map(s => s._id);
+        }
+
+        // Build the final filter object
+        let filter = {};
+        if (stationId) {
+            filter.registeredStationId = stationId; // Exact match
+        } else if (provinceId || districtId) {
+            filter.registeredStationId = { $in: stationIdsToSearch }; // Filter by region
+        }
+
+        // Level 5 Requirement: Sorting (Defaults to newest first if not provided)
+        const sortOption = sortBy || '-createdAt';
+
+        // Execute the query
+        const vehicles = await Vehicle.find(filter)
+            .populate('registeredStationId', 'name')
+            .sort(sortOption);
 
         res.status(200).json(vehicles);
     } catch (error) {
