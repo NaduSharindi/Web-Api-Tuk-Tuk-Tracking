@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/authRoutes.js';
 import regionRoutes from './routes/regionRoutes.js';
+import vehicleRoutes from './routes/vehicleRoutes.js';
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json()); // Parses incoming JSON payloads
 // Mount the routes
 app.use('/api/auth', authRoutes);
 app.use('/api/regions', regionRoutes);
+app.use('/api/vehicles', vehicleRoutes);
 
 // A simple health-check route to verify the API is running
 app.get('/api/health', (req, res) => {
