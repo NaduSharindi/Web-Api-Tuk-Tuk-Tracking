@@ -8,22 +8,22 @@ import LocationPing from '../src/models/LocationPing.js';
 import PoliceStation from '../src/models/PoliceStation.js';
 
 // Load environment variables from the root .env file
-dotenv.config({ path: '../.env' });
+dotenv.config();
 
 const seedDatabase = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB for Simulation...');
+        console.log('Connected to MongoDB for Simulation...');
 
         // 1. Get an existing Police Station to register the Tuk-Tuks to
         const stations = await PoliceStation.find();
         if (stations.length === 0) {
-            console.error('❌ No Police Stations found. Please create one in Postman first.');
+            console.error('No Police Stations found. Please create one in Postman first.');
             process.exit(1);
         }
         const stationId = stations[0]._id;
 
-        console.log('⏳ Generating 200 Tuk-Tuks...');
+        console.log('Generating 200 Tuk-Tuks...');
         const vehiclesToInsert = [];
 
         // 2. Generate 200 Vehicles
@@ -38,9 +38,9 @@ const seedDatabase = async () => {
 
         // Insert all 200 vehicles into the database at once
         const insertedVehicles = await Vehicle.insertMany(vehiclesToInsert);
-        console.log(`✅ Successfully registered ${insertedVehicles.length} Tuk-Tuks!`);
+        console.log(`Successfully registered ${insertedVehicles.length} Tuk-Tuks!`);
 
-        console.log('⏳ Generating 1 week of historical GPS pings for each vehicle...');
+        console.log('Generating 1 week of historical GPS pings for each vehicle...');
         const pingsToInsert = [];
 
         // 3. Generate Historical Pings for each vehicle
@@ -66,13 +66,13 @@ const seedDatabase = async () => {
 
         // Insert the thousands of pings
         await LocationPing.insertMany(pingsToInsert);
-        console.log(`✅ Successfully generated ${pingsToInsert.length} historical location pings!`);
+        console.log(`Successfully generated ${pingsToInsert.length} historical location pings!`);
 
-        console.log('🎉 Simulation Data Seeding Complete!');
+        console.log('Simulation Data Seeding Complete!');
         process.exit();
 
     } catch (error) {
-        console.error('❌ Error during simulation seeding:', error);
+        console.error('Error during simulation seeding:', error);
         process.exit(1);
     }
 };
