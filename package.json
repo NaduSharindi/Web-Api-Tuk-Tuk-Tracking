@@ -1,0 +1,13 @@
+{
+  "name": "web-api-tuk-tuk-tracking",
+  "version": "1.0.0",
+  "description": "RESTful API for Sri Lanka Police Tuk-Tuk Tracking System",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
