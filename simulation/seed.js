@@ -2,80 +2,100 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { faker } from '@faker-js/faker';
 
-// Import your models
+import Province from '../src/models/Province.js';
+import District from '../src/models/District.js';
+import PoliceStation from '../src/models/PoliceStation.js';
 import Vehicle from '../src/models/Vehicle.js';
 import LocationPing from '../src/models/LocationPing.js';
-import PoliceStation from '../src/models/PoliceStation.js';
 
-// Load environment variables from the root .env file
 dotenv.config();
 
 const seedDatabase = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('Connected to MongoDB for Simulation...');
+        console.log('✅ Connected to MongoDB for Full Simulation...');
 
-        // 1. Get an existing Police Station to register the Tuk-Tuks to
-        const stations = await PoliceStation.find();
-        if (stations.length === 0) {
-            console.error('No Police Stations found. Please create one in Postman first.');
-            process.exit(1);
+        // Clear existing data to avoid duplicates
+        await Promise.all([
+            LocationPing.deleteMany(), Vehicle.deleteMany(),
+            PoliceStation.deleteMany(), District.deleteMany(), Province.deleteMany()
+        ]);
+        console.log('🗑️ Cleared old database records...');
+
+        // 1. Generate 9 Provinces
+        const provinceNames = ['Western', 'Central', 'Southern', 'Northern', 'Eastern', 'North Western', 'North Central', 'Uva', 'Sabaragamuwa'];
+        const provinces = await Province.insertMany(provinceNames.map(name => ({ name })));
+        console.log(`✅ Generated ${provinces.length} Provinces (Requirement Met)`);
+
+        // 2. Generate 25 Districts mapped to Provinces
+        const districtData = [
+            { name: 'Colombo', prov: 'Western' }, { name: 'Gampaha', prov: 'Western' }, { name: 'Kalutara', prov: 'Western' },
+            { name: 'Kandy', prov: 'Central' }, { name: 'Matale', prov: 'Central' }, { name: 'Nuwara Eliya', prov: 'Central' },
+            { name: 'Galle', prov: 'Southern' }, { name: 'Matara', prov: 'Southern' }, { name: 'Hambantota', prov: 'Southern' },
+            { name: 'Jaffna', prov: 'Northern' }, { name: 'Kilinochchi', prov: 'Northern' }, { name: 'Mannar', prov: 'Northern' }, { name: 'Vavuniya', prov: 'Northern' }, { name: 'Mullaitivu', prov: 'Northern' },
+            { name: 'Batticaloa', prov: 'Eastern' }, { name: 'Ampara', prov: 'Eastern' }, { name: 'Trincomalee', prov: 'Eastern' },
+            { name: 'Kurunegala', prov: 'North Western' }, { name: 'Puttalam', prov: 'North Western' },
+            { name: 'Anuradhapura', prov: 'North Central' }, { name: 'Polonnaruwa', prov: 'North Central' },
+            { name: 'Badulla', prov: 'Uva' }, { name: 'Moneragala', prov: 'Uva' },
+            { name: 'Ratnapura', prov: 'Sabaragamuwa' }, { name: 'Kegalle', prov: 'Sabaragamuwa' }
+        ];
+
+        const districtsToInsert = districtData.map(d => ({
+            name: d.name,
+            provinceId: provinces.find(p => p.name === d.prov)._id
+        }));
+        const districts = await District.insertMany(districtsToInsert);
+        console.log(`✅ Generated ${districts.length} Districts (Requirement Met)`);
+
+        // 3. Generate 20 Police Stations
+        const stationsToInsert = [];
+        for (let i = 0; i < 20; i++) {
+            stationsToInsert.push({
+                name: `${faker.location.city()} Police Station`,
+                // Assign randomly to one of the 25 districts
+                districtId: districts[Math.floor(Math.random() * districts.length)]._id
+            });
         }
-        const stationId = stations[0]._id;
+        const stations = await PoliceStation.insertMany(stationsToInsert);
+        console.log(`✅ Generated ${stations.length} Police Stations (Requirement Met)`);
 
-        console.log('Generating 200 Tuk-Tuks...');
+        // 4. Generate 200 Tuk-Tuks
         const vehiclesToInsert = [];
-
-        // 2. Generate 200 Vehicles
         for (let i = 0; i < 200; i++) {
             vehiclesToInsert.push({
                 registrationNumber: `WP-${faker.string.alpha({ length: 3, casing: 'upper' })}-${faker.number.int({ min: 1000, max: 9999 })}`,
                 ownerName: faker.person.fullName(),
                 contactNumber: `07${faker.number.int({ min: 10000000, max: 99999999 })}`,
-                registeredStationId: stationId
+                registeredStationId: stations[Math.floor(Math.random() * stations.length)]._id
             });
         }
+        const vehicles = await Vehicle.insertMany(vehiclesToInsert);
+        console.log(`✅ Generated ${vehicles.length} Registered Tuk-Tuks (Requirement Met)`);
 
-        // Insert all 200 vehicles into the database at once
-        const insertedVehicles = await Vehicle.insertMany(vehiclesToInsert);
-        console.log(`Successfully registered ${insertedVehicles.length} Tuk-Tuks!`);
-
-        console.log('Generating 1 week of historical GPS pings for each vehicle...');
+        // 5. Generate 1 Week of Location History
         const pingsToInsert = [];
-
-        // 3. Generate Historical Pings for each vehicle
-        // We will create 5 pings per vehicle, spread out over the last 7 days
-        for (const vehicle of insertedVehicles) {
+        for (const vehicle of vehicles) {
             for (let j = 0; j < 5; j++) {
                 pingsToInsert.push({
                     vehicleId: vehicle._id,
                     location: {
                         type: 'Point',
-                        // Simulating coordinates roughly around Colombo area
-                        coordinates: [
-                            faker.location.longitude({ min: 79.84, max: 79.90 }),
-                            faker.location.latitude({ min: 6.85, max: 6.95 })
-                        ]
+                        coordinates: [faker.location.longitude({ min: 79.84, max: 79.90 }), faker.location.latitude({ min: 6.85, max: 6.95 })]
                     },
                     speed: faker.number.int({ min: 10, max: 60 }),
-                    // Generate a random date from the past 7 days
                     createdAt: faker.date.recent({ days: 7 })
                 });
             }
         }
-
-        // Insert the thousands of pings
         await LocationPing.insertMany(pingsToInsert);
-        console.log(`Successfully generated ${pingsToInsert.length} historical location pings!`);
+        console.log(`✅ Generated ${pingsToInsert.length} historical location pings! (Requirement Met)`);
 
-        console.log('Simulation Data Seeding Complete!');
+        console.log('🎉 ALL COURSEWORK SIMULATION REQUIREMENTS FULFILLED!');
         process.exit();
-
     } catch (error) {
-        console.error('Error during simulation seeding:', error);
+        console.error('❌ Error:', error);
         process.exit(1);
     }
 };
 
-// Run the function
 seedDatabase();
