@@ -42,3 +42,25 @@ export const addPoliceStation = async (req, res) => {
         res.status(400).json({ message: 'Error adding police station', error: error.message });
     }
 };
+
+// @desc    Get all Districts
+// @route   GET /api/regions/districts
+export const getDistricts = async (req, res) => {
+    try {
+        const districts = await District.find().populate('provinceId', 'name');
+        res.status(200).json(districts);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Get all Police Stations
+// @route   GET /api/regions/stations
+export const getStations = async (req, res) => {
+    try {
+        const stations = await PoliceStation.find().populate('districtId', 'name');
+        res.status(200).json(stations);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};

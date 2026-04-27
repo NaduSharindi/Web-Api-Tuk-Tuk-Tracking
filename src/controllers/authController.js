@@ -70,3 +70,20 @@ export const login = async (req, res) => {
         res.status(500).json({ message: 'Server Error during login', error: error.message });
     }
 };
+
+// @desc    Get a list of all registered users
+// @route   GET /api/auth/users
+// @access  Private/Admin
+export const getUsers = async (req, res) => {
+    try {
+        // Find all users but explicitly EXCLUDE the password field (-password)
+        // Also populate the station details if they are a Station Officer
+        const users = await User.find()
+            .select('-password')
+            .populate('stationId', 'name districtId');
+
+        res.status(200).json(users);
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving users', error: error.message });
+    }
+};

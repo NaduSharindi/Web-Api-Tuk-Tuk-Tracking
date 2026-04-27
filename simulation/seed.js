@@ -7,25 +7,27 @@ import District from '../src/models/District.js';
 import PoliceStation from '../src/models/PoliceStation.js';
 import Vehicle from '../src/models/Vehicle.js';
 import LocationPing from '../src/models/LocationPing.js';
+import User from '../src/models/User.js';
 
 dotenv.config();
 
 const seedDatabase = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB for Full Simulation...');
+        console.log('Connected to MongoDB for Full Simulation...');
 
         // Clear existing data to avoid duplicates
         await Promise.all([
             LocationPing.deleteMany(), Vehicle.deleteMany(),
-            PoliceStation.deleteMany(), District.deleteMany(), Province.deleteMany()
+            PoliceStation.deleteMany(), District.deleteMany(), Province.deleteMany(),
+            User.deleteMany()
         ]);
-        console.log('🗑️ Cleared old database records...');
+        console.log('Cleared old database records...');
 
         // 1. Generate 9 Provinces
         const provinceNames = ['Western', 'Central', 'Southern', 'Northern', 'Eastern', 'North Western', 'North Central', 'Uva', 'Sabaragamuwa'];
         const provinces = await Province.insertMany(provinceNames.map(name => ({ name })));
-        console.log(`✅ Generated ${provinces.length} Provinces (Requirement Met)`);
+        console.log(`Generated ${provinces.length} Provinces (Requirement Met)`);
 
         // 2. Generate 25 Districts mapped to Provinces
         const districtData = [
@@ -45,7 +47,7 @@ const seedDatabase = async () => {
             provinceId: provinces.find(p => p.name === d.prov)._id
         }));
         const districts = await District.insertMany(districtsToInsert);
-        console.log(`✅ Generated ${districts.length} Districts (Requirement Met)`);
+        console.log(`Generated ${districts.length} Districts (Requirement Met)`);
 
         // 3. Generate 20 Police Stations
         const stationsToInsert = [];
@@ -57,7 +59,29 @@ const seedDatabase = async () => {
             });
         }
         const stations = await PoliceStation.insertMany(stationsToInsert);
-        console.log(`✅ Generated ${stations.length} Police Stations (Requirement Met)`);
+        console.log(`Generated ${stations.length} Police Stations (Requirement Met)`);
+
+        // --- SIMULATE THE 3 USER TYPES ---
+
+        // 1. Central Administrator (HQ Control)
+        await User.create({
+            username: "superadmin",
+            password: "securepassword123", // Your Mongoose pre-save hook will hash this!
+            role: "ADMIN"
+        });
+        console.log(`Generated 1 Central Administrator (Requirement Met)`);
+
+        // 2. Police Stations & Authorized Users
+        // Generate one Station Officer for every Police Station we created
+        for (let i = 0; i < stations.length; i++) {
+            await User.create({
+                username: `officer_station_${i + 1}`,
+                password: "password123", // Standard password so you can easily test them
+                role: "STATION_OFFICER",
+                stationId: stations[i]._id
+            });
+        }
+        console.log(`Generated ${stations.length} Station Officers (Requirement Met)`);
 
         // 4. Generate 200 Tuk-Tuks
         const vehiclesToInsert = [];
@@ -70,7 +94,7 @@ const seedDatabase = async () => {
             });
         }
         const vehicles = await Vehicle.insertMany(vehiclesToInsert);
-        console.log(`✅ Generated ${vehicles.length} Registered Tuk-Tuks (Requirement Met)`);
+        console.log(`Generated ${vehicles.length} Registered Tuk-Tuks (Requirement Met)`);
 
         // 5. Generate 1 Week of Location History
         const pingsToInsert = [];
@@ -88,12 +112,12 @@ const seedDatabase = async () => {
             }
         }
         await LocationPing.insertMany(pingsToInsert);
-        console.log(`✅ Generated ${pingsToInsert.length} historical location pings! (Requirement Met)`);
+        console.log(`Generated ${pingsToInsert.length} historical location pings! (Requirement Met)`);
 
-        console.log('🎉 ALL COURSEWORK SIMULATION REQUIREMENTS FULFILLED!');
+        console.log('ALL COURSEWORK SIMULATION REQUIREMENTS FULFILLED!');
         process.exit();
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('Error:', error);
         process.exit(1);
     }
 };
