@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: [self-hosted, Linux, X64] # This matches your runner screenshot exactly
+    runs-on: self-hosted
 
     steps:
       - name: Checkout Code
