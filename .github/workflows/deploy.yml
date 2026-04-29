@@ -40,9 +40,9 @@ jobs:
           docker rm tuktuk-api || true
 
       - name: Run new Docker container
-          env:
-            ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
-            IMAGE_TAG: latest
-          run: |
-            docker run -d -p 5000:5000 --name tuktuk-api -e MONGO_URI="${{ secrets.MONGO_URI }}" $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                  env:
+                    ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+                    ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+                    IMAGE_TAG: latest
+                  run: |
+                    docker run -d -p 5000:5000 --name tuktuk-api -e MONGO_URI="${{ secrets.MONGO_URI }}" $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
