@@ -1,36 +1,57 @@
 import LocationPing from '../models/LocationPing.js';
+import Vehicle from '../models/Vehicle.js';
 
-// @desc    Record a new GPS ping from a Tuk-Tuk
+// @desc    Submit a location update (From Tuk-Tuk Device)
 // @route   POST /api/locations/ping
+// @access  Private (Device or Admin)
 export const addLocationPing = async (req, res) => {
     try {
-        const { vehicleId, longitude, latitude, speed } = req.body;
+        const { vehicleId, deviceId, latitude, longitude, speed, heading, timestamp } = req.body;
 
         const ping = await LocationPing.create({
             vehicleId,
+            deviceId,
             location: {
                 type: 'Point',
-                coordinates: [longitude, latitude] // Note: GeoJSON requires Longitude first, then Latitude!
+                coordinates: [longitude, latitude] // GeoJSON strictly requires Longitude first!
             },
-            speed
+            speed,
+            heading,
+            timestamp: timestamp || Date.now()
         });
 
-        res.status(201).json(ping);
+        res.status(201).json({ success: true, data: ping });
     } catch (error) {
-        res.status(500).json({ message: 'Error saving location ping', error: error.message });
+        res.status(500).json({ message: 'Error saving location', error: error.message });
     }
 };
 
-// @desc    Get location history for a specific vehicle
+// @desc    Get historical movement logs for a vehicle
 // @route   GET /api/locations/history/:vehicleId
+// @access  Private
 export const getLocationHistory = async (req, res) => {
     try {
-        // Find all pings for the given vehicle, sorted by newest first (-1)
-        const history = await LocationPing.find({ vehicleId: req.params.vehicleId })
-            .sort({ createdAt: -1 });
+        const { startDate, endDate } = req.query;
+        const { vehicleId } = req.params;
 
-        res.status(200).json(history);
+        // Build the time-window query
+        let query = { vehicleId: vehicleId };
+
+        if (startDate && endDate) {
+            query.timestamp = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            };
+        }
+
+        const history = await LocationPing.find(query).sort({ timestamp: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: history.length,
+            data: history
+        });
     } catch (error) {
-        res.status(500).json({ message: 'Server Error retrieving history', error: error.message });
+        res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
