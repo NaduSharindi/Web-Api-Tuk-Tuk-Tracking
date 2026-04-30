@@ -1,6 +1,7 @@
 import express from 'express';
 import { addLocationPing, getLocationHistory } from '../controllers/locationController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
+import { validatePing } from '../middleware/validationMiddleware.js';
 
 const router = express.Router();
 
@@ -12,5 +13,7 @@ router.post('/ping', addLocationPing);
 
 // 3. ONLY Admins and Station Officers are authorized to view the history
 router.get('/history/:vehicleId', authorize('ADMIN', 'STATION_OFFICER'), getLocationHistory);
+
+router.post('/ping', validatePing, addLocationPing);
 
 export default router;
