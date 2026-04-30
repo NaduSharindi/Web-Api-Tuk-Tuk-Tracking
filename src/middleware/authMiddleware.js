@@ -6,6 +6,16 @@ import Blacklist from '../models/Blacklist.js';
 export const protect = async (req, res, next) => {
     let token;
 
+    // Inside your protect middleware:
+    req.user = await User.findById(decoded.id).select('-password');
+
+// ADD THESE 3 LINES:
+    if (!req.user) {
+        return res.status(401).json({ message: 'Not authorized, user no longer exists in database' });
+    }
+
+    next();
+
     const isBlacklisted = await Blacklist.findOne({ token });
     if (isBlacklisted) {
         return res.status(401).json({ message: 'Not authorized, token has been logged out/invalidated' });
