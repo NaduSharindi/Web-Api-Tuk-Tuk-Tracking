@@ -9,7 +9,6 @@ const locationPingSchema = new mongoose.Schema({
     deviceId: {
         type: String
     },
-    // This is the specific GeoJSON format required by the brief
     location: {
         type: {
             type: String,
@@ -23,6 +22,13 @@ const locationPingSchema = new mongoose.Schema({
     },
     speed: { type: Number },
     heading: { type: Number }, // 0-360 degrees
+
+    // --- ADD THESE 3 NEW FIELDS ---
+    accuracy: { type: Number }, // Required by spec (meters)
+    provinceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Province' }, // Computed geographic link
+    districtId: { type: mongoose.Schema.Types.ObjectId, ref: 'District' }, // Computed geographic link
+    // ------------------------------
+
     timestamp: { type: Date, default: Date.now }
 });
 

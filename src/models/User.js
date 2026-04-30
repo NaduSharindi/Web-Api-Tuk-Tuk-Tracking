@@ -4,11 +4,24 @@ import bcrypt from 'bcryptjs';
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ['ADMIN', 'STATION_OFFICER'], required: true },
-    stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'PoliceStation' } // Optional, for station officers
+
+    // --- 1. UPDATED: Spec requires these specific lowercase roles ---
+    role: {
+        type: String,
+        enum: ['admin', 'provincial', 'station', 'device'],
+        required: true
+    },
+
+    // --- 2. NEW: Spec requires these geographic and tracking fields ---
+    provinceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Province' },
+    districtId: { type: mongoose.Schema.Types.ObjectId, ref: 'District' },
+    stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'PoliceStation' },
+    lastLogin: { type: Date }
+    // ----------------------------------------------------------------
+
 }, { timestamps: true });
 
-// Hash password before saving (Modern Mongoose version)
+// Hash password before saving (Your excellent existing code is kept here!)
 userSchema.pre('save', async function () {
     if (!this.isModified('password')) return;
     const salt = await bcrypt.genSalt(10);

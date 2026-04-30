@@ -12,7 +12,7 @@ router.use(protect);
 router.post('/ping', addLocationPing);
 
 // 3. ONLY Admins and Station Officers are authorized to view the history
-router.get('/history/:vehicleId', authorize('ADMIN', 'STATION_OFFICER'), getLocationHistory);
+router.get('/history/:vehicleId', authorize('admin', 'station'), getLocationHistory);
 
 router.post('/ping', validatePing, addLocationPing);
 
