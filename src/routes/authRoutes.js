@@ -1,14 +1,20 @@
 import express from 'express';
-import { register, login, getUsers } from '../controllers/authController.js';
+import { register, login, getMe, logout } from '../controllers/authController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Public routes (Anyone can attempt to login or register)
-router.post('/register', register);
+// Public route (No Auth Required)
 router.post('/login', login);
 
-// Protected routes (Must be logged in, AND must be an ADMIN)
-router.get('/users', protect, authorize('ADMIN'), getUsers); // <-- NEW ROUTE
+// Protected routes (Requires a valid JWT token)
+router.use(protect);
+
+// Admin-only Registration (Requires Auth AND 'admin' role)
+router.post('/register', authorize('admin'), register);
+
+// General protected routes
+router.get('/me', getMe);
+router.post('/logout', logout);
 
 export default router;

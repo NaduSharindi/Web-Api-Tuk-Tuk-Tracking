@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Blacklist from '../models/Blacklist.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -87,3 +88,38 @@ export const getUsers = async (req, res) => {
         res.status(500).json({ message: 'Error retrieving users', error: error.message });
     }
 };
+
+// @desc    Get current logged in user
+// @route   GET /api/auth/me
+// @access  Private
+export const getMe = async (req, res) => {
+    try {
+        // req.user is already populated by your 'protect' middleware!
+        const user = await User.findById(req.user.id).select('-password');
+        res.status(200).json({ success: true, data: user });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Log user out / clear cookie / invalidate token
+// @route   POST /api/auth/logout
+// @access  Private
+export const logout = async (req, res) => {
+    try {
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        if (token) {
+            // Save the token to the blacklist
+            await Blacklist.create({ token });
+        }
+
+        res.status(200).json({ success: true, message: 'Successfully logged out and token invalidated' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+

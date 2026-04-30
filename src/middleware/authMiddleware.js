@@ -1,9 +1,15 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Blacklist from '../models/Blacklist.js';
 
 // @desc    Protect routes - Verify JWT token
 export const protect = async (req, res, next) => {
     let token;
+
+    const isBlacklisted = await Blacklist.findOne({ token });
+    if (isBlacklisted) {
+        return res.status(401).json({ message: 'Not authorized, token has been logged out/invalidated' });
+    }
 
     // Check if the authorization header exists and starts with 'Bearer'
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
