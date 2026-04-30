@@ -54,8 +54,17 @@ const seedDatabase = async () => {
         for (let i = 0; i < 20; i++) {
             stationsToInsert.push({
                 name: `${faker.location.city()} Police Station`,
-                // Assign randomly to one of the 25 districts
-                districtId: districts[Math.floor(Math.random() * districts.length)]._id
+                code: `PS-${faker.string.alphanumeric(4).toUpperCase()}-${i}`, // NEW: Required unique code
+                districtId: districts[Math.floor(Math.random() * districts.length)]._id,
+                location: { // NEW: Required GeoJSON Location
+                    type: 'Point',
+                    coordinates: [
+                        faker.location.longitude({ min: 79.84, max: 81.88 }), // SL Longitude
+                        faker.location.latitude({ min: 5.91, max: 9.85 })     // SL Latitude
+                    ]
+                },
+                address: faker.location.streetAddress(),
+                contactNumber: `011${faker.number.int({ min: 2000000, max: 2999999 })}`
             });
         }
         const stations = await PoliceStation.insertMany(stationsToInsert);
@@ -67,7 +76,7 @@ const seedDatabase = async () => {
         await User.create({
             username: "superadmin",
             password: "securepassword123", // Your Mongoose pre-save hook will hash this!
-            role: "ADMIN"
+            role: "admin"
         });
         console.log(`Generated 1 Central Administrator (Requirement Met)`);
 
@@ -77,7 +86,7 @@ const seedDatabase = async () => {
             await User.create({
                 username: `officer_station_${i + 1}`,
                 password: "password123", // Standard password so you can easily test them
-                role: "STATION_OFFICER",
+                role: "station",
                 stationId: stations[i]._id
             });
         }
@@ -88,8 +97,10 @@ const seedDatabase = async () => {
         for (let i = 0; i < 200; i++) {
             vehiclesToInsert.push({
                 registrationNumber: `WP-${faker.string.alpha({ length: 3, casing: 'upper' })}-${faker.number.int({ min: 1000, max: 9999 })}`,
+                deviceId: `DEV-${faker.string.alphanumeric(6).toUpperCase()}-${i}`, // NEW: Required Device ID
                 ownerName: faker.person.fullName(),
-                contactNumber: `07${faker.number.int({ min: 10000000, max: 99999999 })}`,
+                ownerPhone: `07${faker.number.int({ min: 10000000, max: 99999999 })}`, // UPDATED: contactNumber -> ownerPhone
+                driverName: faker.person.fullName(), // NEW
                 registeredStationId: stations[Math.floor(Math.random() * stations.length)]._id
             });
         }
