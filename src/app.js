@@ -7,6 +7,7 @@ import locationRoutes from './routes/locationRoutes.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.js';
 import rateLimit from 'express-rate-limit';
+import administrativeRoutes from './routes/administrativeRoutes.js';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/', apiLimiter);
 app.use('/api/auth/login', authLimiter);
+app.use('/api', administrativeRoutes);
 
 // <-- NEW SWAGGER ROUTE -->
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
