@@ -47,21 +47,17 @@ export const registerVehicle = async (req, res) => {
 // @access  Private
 export const getVehicles = async (req, res) => {
     try {
-        const { provinceId, districtId, stationId, sortBy } = req.query;
+        // NEW: Grab page and limit from req.query
+        const { provinceId, districtId, stationId, sortBy, page, limit } = req.query;
 
-        // Initialize an empty filter
         let filter = {};
 
-        // ==========================================
         // 1. ROLE-BASED ACCESS CONTROL (SECURITY)
-        // ==========================================
         if (req.user.role === 'station') {
             filter.registeredStationId = req.user.stationId;
         }
 
-        // ==========================================
-        // 2. GEOGRAPHIC FILTERING (QUERY PARAMS)
-        // ==========================================
+        // 2. GEOGRAPHIC FILTERING
         if (req.user.role === 'admin') {
             if (stationId) filter.registeredStationId = stationId;
             else if (districtId) filter.registeredDistrictId = districtId;
@@ -69,13 +65,19 @@ export const getVehicles = async (req, res) => {
         }
 
         // ==========================================
-        // 3. SORTING & EXECUTION
+        // 3. NEW: PAGINATION LOGIC
         // ==========================================
         const sortOption = sortBy || '-createdAt';
+        const pageNum = parseInt(page, 10) || 1; // Default to page 1
+        const limitNum = parseInt(limit, 10) || 250; // Default high so it shows all if no limit is provided
+        const skip = (pageNum - 1) * limitNum; // Formula to skip previous pages
 
+        // 4. EXECUTE QUERY WITH PAGINATION
         const vehicles = await Vehicle.find(filter)
             .populate('registeredStationId', 'name code')
-            .sort(sortOption);
+            .sort(sortOption)
+            .skip(skip)     // <--- Added skip!
+            .limit(limitNum); // <--- Added limit!
 
         res.status(200).json({
             success: true,
