@@ -1,5 +1,5 @@
 import express from 'express';
-import { addLocationPing, getLocationHistory, getLiveLocations } from '../controllers/locationController.js';
+import { addLocationPing, getLocationHistory, getLiveLocations, addBulkLocationPings } from '../controllers/locationController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 import { validatePing } from '../middleware/validationMiddleware.js'; // Keeping your awesome middleware!
 
@@ -16,5 +16,7 @@ router.get('/live', authorize('admin', 'station'), getLiveLocations);
 
 // 4. ONLY Admins and Station Officers are authorized to view the history
 router.get('/history/:vehicleId', authorize('admin', 'station'), getLocationHistory);
+
+router.post('/bulk', addBulkLocationPings); // (Add validatePing here if you upgrade it to handle arrays!)
 
 export default router;

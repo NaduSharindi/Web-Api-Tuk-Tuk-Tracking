@@ -89,3 +89,47 @@ export const getLiveLocations = async (req, res) => {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
+
+// @desc    Submit multiple location updates at once (Batch/Offline syncing)
+// @route   POST /api/locations/bulk
+// @access  Private (Device or Admin)
+export const addBulkLocationPings = async (req, res) => {
+    try {
+        const { pings } = req.body; // Expecting an array of ping objects
+
+        if (!pings || !Array.isArray(pings) || pings.length === 0) {
+            return res.status(400).json({ message: 'Please provide an array of location pings' });
+        }
+
+        // 1. Get the device ID from the first ping to find the vehicle
+        const deviceId = pings[0].deviceId;
+        const vehicle = await Vehicle.findOne({ deviceId: deviceId });
+
+        if (!vehicle) {
+            return res.status(404).json({ message: 'Vehicle not found for this device' });
+        }
+
+        // 2. Format all pings for insertion
+        const formattedPings = pings.map(ping => ({
+            vehicleId: vehicle._id,
+            deviceId: ping.deviceId,
+            location: {
+                type: 'Point',
+                coordinates: [ping.longitude, ping.latitude]
+            },
+            speed: ping.speed,
+            heading: ping.heading,
+            accuracy: ping.accuracy,
+            provinceId: vehicle.registeredProvinceId,
+            districtId: vehicle.registeredDistrictId,
+            timestamp: ping.timestamp || Date.now()
+        }));
+
+        // 3. Perform a massive bulk insert (Super fast!)
+        const insertedPings = await LocationPing.insertMany(formattedPings);
+
+        res.status(201).json({ success: true, count: insertedPings.length, message: 'Bulk insert successful' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error saving bulk locations', error: error.message });
+    }
+};
