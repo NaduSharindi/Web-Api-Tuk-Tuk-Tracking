@@ -41,18 +41,22 @@ export const addLocationPing = async (req, res) => {
 // @access  Private
 export const getLocationHistory = async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
+        // NEW: Grab province and district from req.query
+        const { startDate, endDate, province, district } = req.query;
         const { vehicleId } = req.params;
 
-        // Build the time-window query
         let query = { vehicleId: vehicleId };
 
-        if (startDate && endDate) {
-            query.timestamp = {
-                $gte: new Date(startDate),
-                $lte: new Date(endDate)
-            };
+        // 1. Time-window filtering
+        if (startDate || endDate) {
+            query.timestamp = {};
+            if (startDate) query.timestamp.$gte = new Date(startDate);
+            if (endDate) query.timestamp.$lte = new Date(endDate);
         }
+
+        // 2. NEW: Geographic filtering
+        if (province) query.provinceId = province;
+        if (district) query.districtId = district;
 
         const history = await LocationPing.find(query).sort({ timestamp: -1 });
 
@@ -67,12 +71,27 @@ export const getLocationHistory = async (req, res) => {
 // @access  Private
 export const getLiveLocations = async (req, res) => {
     try {
-        // To prevent massive data loads, we only fetch pings from the last 15 minutes
-        const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+        // NEW: Grab all query parameters
+        const { province, district, vehicleIds, since } = req.query;
+        let matchStage = {};
 
-        // MongoDB Aggregation: Group by vehicle ID and get the most recent ping for each
+        // 1. NEW: Custom 'since' timestamp, or default to last 15 mins
+        const timeLimit = since ? new Date(since) : new Date(Date.now() - 15 * 60 * 1000);
+        matchStage.timestamp = { $gte: timeLimit };
+
+        // 2. NEW: Geographic filtering
+        if (province) matchStage.provinceId = province;
+        if (district) matchStage.districtId = district;
+
+        // 3. NEW: Specific Vehicle IDs (Comma-separated)
+        if (vehicleIds) {
+            const idsArray = vehicleIds.split(',');
+            matchStage.vehicleId = { $in: idsArray };
+        }
+
+        // MongoDB Aggregation
         const liveLocations = await LocationPing.aggregate([
-            { $match: { timestamp: { $gte: fifteenMinsAgo } } },
+            { $match: matchStage },
             { $sort: { timestamp: -1 } },
             { $group: {
                     _id: "$vehicleId",
