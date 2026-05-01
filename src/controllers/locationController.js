@@ -6,10 +6,17 @@ import Vehicle from '../models/Vehicle.js';
 // @access  Private (Device or Admin)
 export const addLocationPing = async (req, res) => {
     try {
-        const { vehicleId, deviceId, latitude, longitude, speed, heading, timestamp } = req.body;
+        const { vehicleId, deviceId, latitude, longitude, speed, heading, accuracy, timestamp } = req.body;
 
+        // 1. Find the vehicle to get its registered province and district for fast map filtering
+        const vehicle = await Vehicle.findOne({ deviceId: deviceId });
+        if (!vehicle) {
+            return res.status(404).json({ message: 'Vehicle not found for this device' });
+        }
+
+        // 2. Create the ping with the full GeoJSON format and geographic links
         const ping = await LocationPing.create({
-            vehicleId,
+            vehicleId: vehicle._id,
             deviceId,
             location: {
                 type: 'Point',
@@ -17,6 +24,9 @@ export const addLocationPing = async (req, res) => {
             },
             speed,
             heading,
+            accuracy, // Required by spec
+            provinceId: vehicle.registeredProvinceId,
+            districtId: vehicle.registeredDistrictId,
             timestamp: timestamp || Date.now()
         });
 
@@ -46,11 +56,35 @@ export const getLocationHistory = async (req, res) => {
 
         const history = await LocationPing.find(query).sort({ timestamp: -1 });
 
-        res.status(200).json({
-            success: true,
-            count: history.length,
-            data: history
-        });
+        res.status(200).json({ success: true, count: history.length, data: history });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Get latest locations of all vehicles (For the Live Dashboard Map)
+// @route   GET /api/locations/live
+// @access  Private
+export const getLiveLocations = async (req, res) => {
+    try {
+        // To prevent massive data loads, we only fetch pings from the last 15 minutes
+        const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+        // MongoDB Aggregation: Group by vehicle ID and get the most recent ping for each
+        const liveLocations = await LocationPing.aggregate([
+            { $match: { timestamp: { $gte: fifteenMinsAgo } } },
+            { $sort: { timestamp: -1 } },
+            { $group: {
+                    _id: "$vehicleId",
+                    deviceId: { $first: "$deviceId" },
+                    location: { $first: "$location" },
+                    speed: { $first: "$speed" },
+                    heading: { $first: "$heading" },
+                    timestamp: { $first: "$timestamp" }
+                }}
+        ]);
+
+        res.status(200).json({ success: true, count: liveLocations.length, data: liveLocations });
     } catch (error) {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
