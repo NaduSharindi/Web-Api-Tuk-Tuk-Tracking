@@ -6,40 +6,38 @@ import Blacklist from '../models/Blacklist.js';
 export const protect = async (req, res, next) => {
     let token;
 
-    // Inside your protect middleware:
-    req.user = await User.findById(decoded.id).select('-password');
-
-// ADD THESE 3 LINES:
-    if (!req.user) {
-        return res.status(401).json({ message: 'Not authorized, user no longer exists in database' });
-    }
-
-    next();
-
-    const isBlacklisted = await Blacklist.findOne({ token });
-    if (isBlacklisted) {
-        return res.status(401).json({ message: 'Not authorized, token has been logged out/invalidated' });
-    }
-
-    // Check if the authorization header exists and starts with 'Bearer'
+    // Check if the header has the Bearer token
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
-            // Get token from header (Format is "Bearer <token_string>")
+            // 1. Extract the token from the header
             token = req.headers.authorization.split(' ')[1];
 
-            // Verify the token using your secret key
+            // 2. Check if token is blacklisted (Our secure logout feature!)
+            const isBlacklisted = await Blacklist.findOne({ token });
+            if (isBlacklisted) {
+                return res.status(401).json({ message: 'Not authorized, token has been logged out/invalidated' });
+            }
+
+            // 3. VERIFY AND DECODE THE TOKEN (This is the line you were missing!)
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            // Fetch the user from the database (excluding the password) and attach it to the request object
+            // 4. Find the user in the database
             req.user = await User.findById(decoded.id).select('-password');
 
-            next(); // Pass control to the next middleware or controller
+            // 5. The Ghost Token Check
+            if (!req.user) {
+                return res.status(401).json({ message: 'Ghost Token: This user no longer exists in the database!' });
+            }
+
+            next(); // Everything is good, proceed to the controller!
+
         } catch (error) {
-            console.error('Token verification failed:', error.message);
-            return res.status(401).json({ message: 'Not authorized, token failed' });
+            console.error(error);
+            return res.status(401).json({ message: 'Not authorized, token failed or expired' });
         }
     }
 
+    // If no token was provided at all
     if (!token) {
         return res.status(401).json({ message: 'Not authorized, no token provided' });
     }
