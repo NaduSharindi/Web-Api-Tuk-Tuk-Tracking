@@ -1,13 +1,13 @@
 import Vehicle from '../models/Vehicle.js';
 import PoliceStation from '../models/PoliceStation.js';
 import District from '../models/District.js';
+import LocationPing from '../models/LocationPing.js'; // NEW: Required for the current-location endpoint
 
 // @desc    Register a new Tuk-Tuk
 // @route   POST /api/vehicles
 // @access  Private (Admin or Station Officer)
 export const registerVehicle = async (req, res) => {
     try {
-        // Added deviceId and driverName based on the System Analysis requirement
         const { registrationNumber, deviceId, driverName, ownerName, contactNumber, registeredStationId } = req.body;
 
         // 1. Check if vehicle or device already exists
@@ -19,7 +19,6 @@ export const registerVehicle = async (req, res) => {
         }
 
         // 2. Automatically find the District and Province based on the Station
-        // This makes filtering much faster later!
         const station = await PoliceStation.findById(registeredStationId).populate('districtId');
         if (!station) {
             return res.status(404).json({ message: 'Police Station not found' });
@@ -56,18 +55,14 @@ export const getVehicles = async (req, res) => {
         // ==========================================
         // 1. ROLE-BASED ACCESS CONTROL (SECURITY)
         // ==========================================
-        if (req.user.role === 'STATION_OFFICER') {
-            // FORCE the filter to only allow this user's specific station
-            // They cannot override this, even if they put a different stationId in the URL!
+        if (req.user.role === 'station') {
             filter.registeredStationId = req.user.stationId;
         }
-        // If they are an ADMIN, we do not restrict the base filter.
 
         // ==========================================
         // 2. GEOGRAPHIC FILTERING (QUERY PARAMS)
         // ==========================================
-        // Only apply these if the user is an Admin (or if we expand to Provincial Officers later)
-        if (req.user.role === 'ADMIN') {
+        if (req.user.role === 'admin') {
             if (stationId) filter.registeredStationId = stationId;
             else if (districtId) filter.registeredDistrictId = districtId;
             else if (provinceId) filter.registeredProvinceId = provinceId;
@@ -79,7 +74,7 @@ export const getVehicles = async (req, res) => {
         const sortOption = sortBy || '-createdAt';
 
         const vehicles = await Vehicle.find(filter)
-            .populate('registeredStationId', 'name code') // Bring in the station details
+            .populate('registeredStationId', 'name code')
             .sort(sortOption);
 
         res.status(200).json({
@@ -87,6 +82,82 @@ export const getVehicles = async (req, res) => {
             count: vehicles.length,
             data: vehicles
         });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+// =====================================================================
+// NEW ENDPOINTS ADDED BELOW TO MATCH SYSTEM ANALYSIS TABLE
+// =====================================================================
+
+// @desc    Get single vehicle details
+// @route   GET /api/vehicles/:id
+// @access  Private
+export const getVehicleById = async (req, res) => {
+    try {
+        const vehicle = await Vehicle.findById(req.params.id)
+            .populate('registeredStationId', 'name code')
+            .populate('registeredDistrictId', 'name')
+            .populate('registeredProvinceId', 'name');
+
+        if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+
+        // Security: Station Officers can only view vehicles registered to their station
+        if (req.user.role === 'station' && vehicle.registeredStationId._id.toString() !== req.user.stationId.toString()) {
+            return res.status(403).json({ message: 'Not authorized to view vehicles from other stations' });
+        }
+        res.status(200).json({ success: true, data: vehicle });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Update vehicle info
+// @route   PUT /api/vehicles/:id
+// @access  Private (Admin or Station Officer)
+export const updateVehicle = async (req, res) => {
+    try {
+        let vehicle = await Vehicle.findById(req.params.id);
+        if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+
+        // Security: Officers can only update their own station's vehicles
+        if (req.user.role === 'station' && vehicle.registeredStationId.toString() !== req.user.stationId.toString()) {
+            return res.status(403).json({ message: 'Not authorized to update this vehicle' });
+        }
+
+        vehicle = await Vehicle.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+        res.status(200).json({ success: true, data: vehicle });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating vehicle', error: error.message });
+    }
+};
+
+// @desc    Delete/deactivate vehicle
+// @route   DELETE /api/vehicles/:id
+// @access  Private (Admin ONLY)
+export const deleteVehicle = async (req, res) => {
+    try {
+        const vehicle = await Vehicle.findById(req.params.id);
+        if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+
+        await vehicle.deleteOne();
+        res.status(200).json({ success: true, message: 'Vehicle removed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting vehicle', error: error.message });
+    }
+};
+
+// @desc    Get last known location
+// @route   GET /api/vehicles/:id/current-location
+// @access  Private
+export const getCurrentLocation = async (req, res) => {
+    try {
+        // Find the single most recent ping for this vehicle
+        const lastPing = await LocationPing.findOne({ vehicleId: req.params.id }).sort({ timestamp: -1 });
+        if (!lastPing) return res.status(404).json({ message: 'No location data found for this vehicle' });
+
+        res.status(200).json({ success: true, data: lastPing });
     } catch (error) {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
