@@ -13,7 +13,12 @@ const userSchema = new mongoose.Schema({
     },
 
     // --- 2. NEW: Spec requires these geographic and tracking fields ---
-    provinceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Province' },
+    provinceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Province',
+        // Only require this if they are a provincial user
+        required: function() { return this.role === 'provincial'; }
+    },
     districtId: { type: mongoose.Schema.Types.ObjectId, ref: 'District' },
     stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'PoliceStation' },
     lastLogin: { type: Date }
@@ -21,7 +26,7 @@ const userSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Hash password before saving (Your excellent existing code is kept here!)
+// Hash password before saving
 userSchema.pre('save', async function () {
     if (!this.isModified('password')) return;
     const salt = await bcrypt.genSalt(10);

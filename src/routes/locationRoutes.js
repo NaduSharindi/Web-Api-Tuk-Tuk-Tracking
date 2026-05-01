@@ -8,15 +8,16 @@ const router = express.Router();
 // 1. All location routes require a valid JWT token
 router.use(protect);
 
-// 2. Any authenticated device/user can send a ping (Simulating the Tuk-Tuk's tracker)
-router.post('/ping', validatePing, addLocationPing);
+// 2. Any authenticated device/user can send a ping (Device role added!)
+router.post('/ping', authorize('device', 'admin', 'station'), validatePing, addLocationPing);
 
-// 3. Live Dashboard Map (Admin and Station Officers)
-router.get('/live', authorize('admin', 'station'), getLiveLocations);
+// 3. Live Dashboard Map (Admin, Provincial, and Station Officers)
+router.get('/live', authorize('admin', 'provincial', 'station'), getLiveLocations);
 
-// 4. ONLY Admins and Station Officers are authorized to view the history
-router.get('/history/:vehicleId', authorize('admin', 'station'), getLocationHistory);
+// 4. History viewing (Admin, Provincial, and Station Officers)
+router.get('/history/:vehicleId', authorize('admin', 'provincial', 'station'), getLocationHistory);
 
-router.post('/bulk', validateBulkPings, addBulkLocationPings);
+// 5. Batch updates for offline devices (Device role added!)
+router.post('/bulk', authorize('device', 'admin', 'station'), validateBulkPings, addBulkLocationPings);
 
 export default router;

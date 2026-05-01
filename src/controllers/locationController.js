@@ -1,6 +1,7 @@
-import mongoose from 'mongoose'; // NEW: Required for converting string IDs in aggregation!
+import mongoose from 'mongoose';
 import LocationPing from '../models/LocationPing.js';
 import Vehicle from '../models/Vehicle.js';
+import PoliceStation from '../models/PoliceStation.js'; // Needed to look up the Station Officer's district
 
 // @desc    Submit a location update (From Tuk-Tuk Device)
 // @route   POST /api/locations/ping
@@ -9,23 +10,21 @@ export const addLocationPing = async (req, res) => {
     try {
         const { vehicleId, deviceId, latitude, longitude, speed, heading, accuracy, timestamp } = req.body;
 
-        // 1. Find the vehicle to get its registered province and district for fast map filtering
         const vehicle = await Vehicle.findOne({ deviceId: deviceId });
         if (!vehicle) {
             return res.status(404).json({ message: 'Vehicle not found for this device' });
         }
 
-        // 2. Create the ping with the full GeoJSON format and geographic links
         const ping = await LocationPing.create({
             vehicleId: vehicle._id,
             deviceId,
             location: {
                 type: 'Point',
-                coordinates: [longitude, latitude] // GeoJSON strictly requires Longitude first!
+                coordinates: [longitude, latitude]
             },
             speed,
             heading,
-            accuracy, // Required by spec
+            accuracy,
             provinceId: vehicle.registeredProvinceId,
             districtId: vehicle.registeredDistrictId,
             timestamp: timestamp || Date.now()
@@ -47,16 +46,23 @@ export const getLocationHistory = async (req, res) => {
 
         let query = { vehicleId: vehicleId };
 
-        // 1. Time-window filtering
         if (startDate || endDate) {
             query.timestamp = {};
             if (startDate) query.timestamp.$gte = new Date(startDate);
             if (endDate) query.timestamp.$lte = new Date(endDate);
         }
 
-        // 2. Geographic filtering (Mongoose .find() auto-converts strings to ObjectIds, so this is safe)
         if (province) query.provinceId = province;
         if (district) query.districtId = district;
+
+        // --- 🔒 ROLE-BASED SECURITY OVERRIDES ---
+        if (req.user.role === 'station') {
+            const userStation = await PoliceStation.findById(req.user.stationId);
+            query.districtId = userStation.districtId; // Lock to their district
+        } else if (req.user.role === 'provincial') {
+            query.provinceId = req.user.provinceId; // Lock to their province
+        }
+        // ----------------------------------------
 
         const history = await LocationPing.find(query).sort({ timestamp: -1 });
 
@@ -74,21 +80,26 @@ export const getLiveLocations = async (req, res) => {
         const { province, district, vehicleIds, since } = req.query;
         let matchStage = {};
 
-        // 1. Custom 'since' timestamp, or default to last 15 mins
         const timeLimit = since ? new Date(since) : new Date(Date.now() - 15 * 60 * 1000);
         matchStage.timestamp = { $gte: timeLimit };
 
-        // 2. THE FIX: Manually cast geographic strings to ObjectIds for Aggregation
         if (province) matchStage.provinceId = new mongoose.Types.ObjectId(province);
         if (district) matchStage.districtId = new mongoose.Types.ObjectId(district);
 
-        // 3. THE FIX: Convert specific Vehicle IDs (Comma-separated) into ObjectIds
         if (vehicleIds) {
             const idsArray = vehicleIds.split(',').map(id => new mongoose.Types.ObjectId(id.trim()));
             matchStage.vehicleId = { $in: idsArray };
         }
 
-        // MongoDB Aggregation
+        // --- 🔒 ROLE-BASED SECURITY OVERRIDES ---
+        if (req.user.role === 'station') {
+            const userStation = await PoliceStation.findById(req.user.stationId);
+            matchStage.districtId = userStation.districtId; // Force district filter
+        } else if (req.user.role === 'provincial') {
+            matchStage.provinceId = new mongoose.Types.ObjectId(req.user.provinceId); // Force province filter
+        }
+        // ----------------------------------------
+
         const liveLocations = await LocationPing.aggregate([
             { $match: matchStage },
             { $sort: { timestamp: -1 } },
@@ -113,13 +124,12 @@ export const getLiveLocations = async (req, res) => {
 // @access  Private (Device or Admin)
 export const addBulkLocationPings = async (req, res) => {
     try {
-        const { pings } = req.body; // Expecting an array of ping objects
+        const { pings } = req.body;
 
         if (!pings || !Array.isArray(pings) || pings.length === 0) {
             return res.status(400).json({ message: 'Please provide an array of location pings' });
         }
 
-        // 1. Get the device ID from the first ping to find the vehicle
         const deviceId = pings[0].deviceId;
         const vehicle = await Vehicle.findOne({ deviceId: deviceId });
 
@@ -127,7 +137,6 @@ export const addBulkLocationPings = async (req, res) => {
             return res.status(404).json({ message: 'Vehicle not found for this device' });
         }
 
-        // 2. Format all pings for insertion
         const formattedPings = pings.map(ping => ({
             vehicleId: vehicle._id,
             deviceId: ping.deviceId,
@@ -143,7 +152,6 @@ export const addBulkLocationPings = async (req, res) => {
             timestamp: ping.timestamp || Date.now()
         }));
 
-        // 3. Perform a massive bulk insert (Super fast!)
         const insertedPings = await LocationPing.insertMany(formattedPings);
 
         res.status(201).json({ success: true, count: insertedPings.length, message: 'Bulk insert successful' });
