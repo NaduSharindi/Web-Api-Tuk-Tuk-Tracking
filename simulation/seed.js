@@ -95,13 +95,24 @@ const seedDatabase = async () => {
         // 4. Generate 200 Tuk-Tuks
         const vehiclesToInsert = [];
         for (let i = 0; i < 200; i++) {
+            // Pick a random station
+            const randomStation = stations[Math.floor(Math.random() * stations.length)];
+
+            // Look up the parent district to get the province
+            const parentDistrict = districts.find(d => d._id.toString() === randomStation.districtId.toString());
+
             vehiclesToInsert.push({
                 registrationNumber: `WP-${faker.string.alpha({ length: 3, casing: 'upper' })}-${faker.number.int({ min: 1000, max: 9999 })}`,
-                deviceId: `DEV-${faker.string.alphanumeric(6).toUpperCase()}-${i}`, // NEW: Required Device ID
+                deviceId: `DEV-${faker.string.alphanumeric(6).toUpperCase()}-${i}`,
                 ownerName: faker.person.fullName(),
-                ownerPhone: `07${faker.number.int({ min: 10000000, max: 99999999 })}`, // UPDATED: contactNumber -> ownerPhone
-                driverName: faker.person.fullName(), // NEW
-                registeredStationId: stations[Math.floor(Math.random() * stations.length)]._id
+                ownerPhone: `07${faker.number.int({ min: 10000000, max: 99999999 })}`,
+                driverName: faker.person.fullName(),
+
+                // --- THE FIX: Attach all 3 geographic IDs! ---
+                registeredStationId: randomStation._id,
+                registeredDistrictId: parentDistrict._id,
+                registeredProvinceId: parentDistrict.provinceId
+                // ---------------------------------------------
             });
         }
         const vehicles = await Vehicle.insertMany(vehiclesToInsert);
