@@ -8,6 +8,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.js';
 import rateLimit from 'express-rate-limit';
 import administrativeRoutes from './routes/administrativeRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
 
 const app = express();
 
@@ -39,6 +40,8 @@ app.use('/api', administrativeRoutes);
 
 // <-- NEW SWAGGER ROUTE -->
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.use('/api/analytics', analyticsRoutes);
 
 // A simple health-check route to verify the API is running
 app.get('/api/health', (req, res) => {
