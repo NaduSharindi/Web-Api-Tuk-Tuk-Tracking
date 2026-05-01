@@ -1,3 +1,4 @@
+import mongoose from 'mongoose'; // NEW: Required for converting string IDs in aggregation!
 import LocationPing from '../models/LocationPing.js';
 import Vehicle from '../models/Vehicle.js';
 
@@ -41,7 +42,6 @@ export const addLocationPing = async (req, res) => {
 // @access  Private
 export const getLocationHistory = async (req, res) => {
     try {
-        // NEW: Grab province and district from req.query
         const { startDate, endDate, province, district } = req.query;
         const { vehicleId } = req.params;
 
@@ -54,7 +54,7 @@ export const getLocationHistory = async (req, res) => {
             if (endDate) query.timestamp.$lte = new Date(endDate);
         }
 
-        // 2. NEW: Geographic filtering
+        // 2. Geographic filtering (Mongoose .find() auto-converts strings to ObjectIds, so this is safe)
         if (province) query.provinceId = province;
         if (district) query.districtId = district;
 
@@ -71,21 +71,20 @@ export const getLocationHistory = async (req, res) => {
 // @access  Private
 export const getLiveLocations = async (req, res) => {
     try {
-        // NEW: Grab all query parameters
         const { province, district, vehicleIds, since } = req.query;
         let matchStage = {};
 
-        // 1. NEW: Custom 'since' timestamp, or default to last 15 mins
+        // 1. Custom 'since' timestamp, or default to last 15 mins
         const timeLimit = since ? new Date(since) : new Date(Date.now() - 15 * 60 * 1000);
         matchStage.timestamp = { $gte: timeLimit };
 
-        // 2. NEW: Geographic filtering
-        if (province) matchStage.provinceId = province;
-        if (district) matchStage.districtId = district;
+        // 2. THE FIX: Manually cast geographic strings to ObjectIds for Aggregation
+        if (province) matchStage.provinceId = new mongoose.Types.ObjectId(province);
+        if (district) matchStage.districtId = new mongoose.Types.ObjectId(district);
 
-        // 3. NEW: Specific Vehicle IDs (Comma-separated)
+        // 3. THE FIX: Convert specific Vehicle IDs (Comma-separated) into ObjectIds
         if (vehicleIds) {
-            const idsArray = vehicleIds.split(',');
+            const idsArray = vehicleIds.split(',').map(id => new mongoose.Types.ObjectId(id.trim()));
             matchStage.vehicleId = { $in: idsArray };
         }
 
