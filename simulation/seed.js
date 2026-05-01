@@ -54,13 +54,13 @@ const seedDatabase = async () => {
         for (let i = 0; i < 20; i++) {
             stationsToInsert.push({
                 name: `${faker.location.city()} Police Station`,
-                code: `PS-${faker.string.alphanumeric(4).toUpperCase()}-${i}`, // NEW: Required unique code
+                code: `PS-${faker.string.alphanumeric(4).toUpperCase()}-${i}`,
                 districtId: districts[Math.floor(Math.random() * districts.length)]._id,
-                location: { // NEW: Required GeoJSON Location
+                location: {
                     type: 'Point',
                     coordinates: [
-                        faker.location.longitude({ min: 79.84, max: 81.88 }), // SL Longitude
-                        faker.location.latitude({ min: 5.91, max: 9.85 })     // SL Latitude
+                        faker.location.longitude({ min: 79.84, max: 81.88 }),
+                        faker.location.latitude({ min: 5.91, max: 9.85 })
                     ]
                 },
                 address: faker.location.streetAddress(),
@@ -75,17 +75,16 @@ const seedDatabase = async () => {
         // 1. Central Administrator (HQ Control)
         await User.create({
             username: "superadmin",
-            password: "securepassword123", // Your Mongoose pre-save hook will hash this!
+            password: "securepassword123",
             role: "admin"
         });
         console.log(`Generated 1 Central Administrator (Requirement Met)`);
 
         // 2. Police Stations & Authorized Users
-        // Generate one Station Officer for every Police Station we created
         for (let i = 0; i < stations.length; i++) {
             await User.create({
                 username: `officer_station_${i + 1}`,
-                password: "password123", // Standard password so you can easily test them
+                password: "password123",
                 role: "station",
                 stationId: stations[i]._id
             });
@@ -95,10 +94,7 @@ const seedDatabase = async () => {
         // 4. Generate 200 Tuk-Tuks
         const vehiclesToInsert = [];
         for (let i = 0; i < 200; i++) {
-            // Pick a random station
             const randomStation = stations[Math.floor(Math.random() * stations.length)];
-
-            // Look up the parent district to get the province
             const parentDistrict = districts.find(d => d._id.toString() === randomStation.districtId.toString());
 
             vehiclesToInsert.push({
@@ -107,29 +103,35 @@ const seedDatabase = async () => {
                 ownerName: faker.person.fullName(),
                 ownerPhone: `07${faker.number.int({ min: 10000000, max: 99999999 })}`,
                 driverName: faker.person.fullName(),
-
-                // --- THE FIX: Attach all 3 geographic IDs! ---
                 registeredStationId: randomStation._id,
                 registeredDistrictId: parentDistrict._id,
                 registeredProvinceId: parentDistrict.provinceId
-                // ---------------------------------------------
             });
         }
         const vehicles = await Vehicle.insertMany(vehiclesToInsert);
         console.log(`Generated ${vehicles.length} Registered Tuk-Tuks (Requirement Met)`);
 
-        // 5. Generate 1 Week of Location History
+        // 5. Generate 1 Week of Location History (FULLY POPULATED!)
         const pingsToInsert = [];
         for (const vehicle of vehicles) {
             for (let j = 0; j < 5; j++) {
                 pingsToInsert.push({
                     vehicleId: vehicle._id,
+                    deviceId: vehicle.deviceId, // NEW: Required Device ID
                     location: {
                         type: 'Point',
-                        coordinates: [faker.location.longitude({ min: 79.84, max: 79.90 }), faker.location.latitude({ min: 6.85, max: 6.95 })]
+                        coordinates: [
+                            faker.location.longitude({ min: 79.84, max: 81.88 }),
+                            faker.location.latitude({ min: 5.91, max: 9.85 })
+                        ]
                     },
                     speed: faker.number.int({ min: 10, max: 60 }),
-                    createdAt: faker.date.recent({ days: 7 })
+                    heading: faker.number.int({ min: 0, max: 360 }), // NEW: Required heading
+                    accuracy: faker.number.float({ min: 1, max: 10, fractionDigits: 1 }), // NEW: Required accuracy
+                    provinceId: vehicle.registeredProvinceId, // NEW: Geographic link
+                    districtId: vehicle.registeredDistrictId, // NEW: Geographic link
+                    // Ensures the first ping is exactly "now" so the Live Map has active data
+                    timestamp: j === 0 ? new Date() : faker.date.recent({ days: 7 })
                 });
             }
         }
