@@ -4,8 +4,19 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 // Helper function to generate JWT
-const generateToken = (id, role) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+// 🛠️ FIX: Now includes stationId, districtId, and provinceId in the token payload!
+const generateToken = (user) => {
+    return jwt.sign(
+        {
+            id: user._id,
+            role: user.role,
+            stationId: user.stationId,
+            districtId: user.districtId,
+            provinceId: user.provinceId
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' } // Changed to 15m to match your coursework spec!
+    );
 };
 
 // @desc    Register a new user
@@ -25,15 +36,15 @@ export const register = async (req, res) => {
             username,
             password,
             role,
-            stationId: role === 'STATION_OFFICER' ? stationId : undefined
+            stationId: role === 'STATION_OFFICER' || role === 'station' ? stationId : undefined
         });
 
         // 3. Generate Token and respond
-        const token = generateToken(user._id, user.role);
+        const token = generateToken(user);
         res.status(201).json({
             message: 'User registered successfully',
             token,
-            user: { id: user._id, username: user.username, role: user.role }
+            user: { id: user._id, username: user.username, role: user.role, stationId: user.stationId }
         });
 
     } catch (error) {
@@ -60,11 +71,11 @@ export const login = async (req, res) => {
         }
 
         // 3. Generate Token and respond
-        const token = generateToken(user._id, user.role);
+        const token = generateToken(user);
         res.status(200).json({
             message: 'Login successful',
             token,
-            user: { id: user._id, username: user.username, role: user.role }
+            user: { id: user._id, username: user.username, role: user.role, stationId: user.stationId }
         });
 
     } catch (error) {
@@ -77,8 +88,6 @@ export const login = async (req, res) => {
 // @access  Private/Admin
 export const getUsers = async (req, res) => {
     try {
-        // Find all users but explicitly EXCLUDE the password field (-password)
-        // Also populate the station details if they are a Station Officer
         const users = await User.find()
             .select('-password')
             .populate('stationId', 'name districtId');
@@ -94,7 +103,6 @@ export const getUsers = async (req, res) => {
 // @access  Private
 export const getMe = async (req, res) => {
     try {
-        // req.user is already populated by your 'protect' middleware!
         const user = await User.findById(req.user.id).select('-password');
         res.status(200).json({ success: true, data: user });
     } catch (error) {
@@ -113,7 +121,6 @@ export const logout = async (req, res) => {
         }
 
         if (token) {
-            // Save the token to the blacklist
             await Blacklist.create({ token });
         }
 
@@ -122,4 +129,3 @@ export const logout = async (req, res) => {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
-
