@@ -62,3 +62,40 @@ export const getHeatmapData = async (req, res) => {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
+
+// @desc    Get vehicle movement timeline and speeding analytics
+// @route   GET /api/analytics/vehicle/:id/timeline
+// @access  Private
+export const getVehicleTimeline = async (req, res) => {
+    try {
+        const vehicleId = req.params.id;
+
+        // 1. Fetch all historical pings for this specific vehicle, newest first
+        const history = await LocationPing.find({ vehicleId: vehicleId })
+            .sort({ timestamp: -1 });
+
+        if (!history || history.length === 0) {
+            return res.status(404).json({ message: 'No telemetry data found for this vehicle' });
+        }
+
+        // 2. Algorithmically calculate business intelligence (Speeding Violations)
+        const SPEED_LIMIT = 50.0; // 50 km/h municipal limit
+        const speedingViolations = history.filter(ping => ping.speed > SPEED_LIMIT);
+
+        // 3. Format the Analytics Response
+        res.status(200).json({
+            success: true,
+            analytics: {
+                vehicleId: vehicleId,
+                totalDataPoints: history.length,
+                speedingViolationsCount: speedingViolations.length,
+                status: speedingViolations.length > 0 ? "FLAGGED - SPEEDING" : "COMPLIANT",
+            },
+            violations: speedingViolations, // Shows only the pings where they broke the law
+            timeline: history // Shows all pings
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error generating analytics', error: error.message });
+    }
+};
