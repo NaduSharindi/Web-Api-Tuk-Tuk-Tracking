@@ -67,6 +67,13 @@ const generatedPaths = {
     },
 };
 
+const swaggerUiOptions = {
+  customSiteTitle: "Tuk-Tuk API Documentation" // <--- This changes the browser tab name
+};
+
+// 2. Pass the options as the second argument to swaggerUi.setup()
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+
 const swaggerSpec = createSwaggerSpec(generatedPaths);
 
 // 1. DATA PROTECTION: Strict CORS Configuration
