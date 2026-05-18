@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
-import { swaggerSpec } from './config/swagger.js';
+import { collectRouterPaths, createSwaggerSpec } from './config/swagger.js';
 
 // Route Imports
 import authRoutes from './routes/authRoutes.js';
@@ -14,6 +14,60 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import testRoutes from './routes/testRoutes.js';
 
 const app = express();
+
+const generatedPaths = {
+    ...collectRouterPaths({
+        basePath: '/api/auth',
+        router: authRoutes,
+        tag: 'Auth',
+        publicRoutes: [{ method: 'post', path: '/login' }],
+    }),
+    ...collectRouterPaths({
+        basePath: '/api/regions',
+        router: regionRoutes,
+        tag: 'Regions',
+    }),
+    ...collectRouterPaths({
+        basePath: '/api/vehicles',
+        router: vehicleRoutes,
+        tag: 'Vehicles',
+    }),
+    ...collectRouterPaths({
+        basePath: '/api/locations',
+        router: locationRoutes,
+        tag: 'Locations',
+    }),
+    ...collectRouterPaths({
+        basePath: '/api/admin',
+        router: administrativeRoutes,
+        tag: 'Administrative',
+    }),
+    ...collectRouterPaths({
+        basePath: '/api/analytics',
+        router: analyticsRoutes,
+        tag: 'Analytics',
+    }),
+    ...collectRouterPaths({
+        basePath: '/api/v1/test',
+        router: testRoutes,
+        tag: 'Test',
+        secure: false,
+    }),
+    '/api/health': {
+        get: {
+            tags: ['System'],
+            summary: 'Health check',
+            security: [],
+            responses: {
+                200: {
+                    description: 'API is healthy',
+                },
+            },
+        },
+    },
+};
+
+const swaggerSpec = createSwaggerSpec(generatedPaths);
 
 // 1. DATA PROTECTION: Strict CORS Configuration
 app.use(cors({

@@ -13,20 +13,6 @@ router.use(protect);
 
 // Registration is Admin and Station Officer only
 router.post('/', authorize('admin', 'station'), registerVehicle);
-
-/**
- * @swagger
- * /api/vehicles:
- * get:
- * summary: Retrieve a list of vehicles
- * description: Retrieve all Tuk-Tuks. Can be filtered by provinceId, districtId, or stationId.
- * tags: [Vehicles]
- * responses:
- * 200:
- * description: A list of vehicles.
- * 401:
- * description: Unauthorized. Missing or invalid token.
- */
 router.get('/', getVehicles);
 
 // --- NEW CRUD & MANAGEMENT ROUTES ---
