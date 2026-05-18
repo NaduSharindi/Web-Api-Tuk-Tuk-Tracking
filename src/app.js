@@ -67,14 +67,13 @@ const generatedPaths = {
     },
 };
 
+const swaggerSpec = createSwaggerSpec(generatedPaths);
+
 const swaggerUiOptions = {
-  customSiteTitle: "Tuk-Tuk API Documentation" // <--- This changes the browser tab name
+    customSiteTitle: 'Sri Lanka Police - Tuk-Tuk Tracking API',
 };
 
-// 2. Pass the options as the second argument to swaggerUi.setup()
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
-
-const swaggerSpec = createSwaggerSpec(generatedPaths);
 
 // 1. DATA PROTECTION: Strict CORS Configuration
 app.use(cors({
@@ -110,9 +109,6 @@ const pingLimiter = rateLimit({
 });
 app.use('/api/locations/ping', pingLimiter);
 app.use('/api/locations/bulk', pingLimiter);
-
-// <-- SWAGGER ROUTE -->
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/api/v1/test', testRoutes);
 
