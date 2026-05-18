@@ -11,6 +11,7 @@ import vehicleRoutes from './routes/vehicleRoutes.js';
 import locationRoutes from './routes/locationRoutes.js';
 import administrativeRoutes from './routes/administrativeRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import testRoutes from './routes/testRoutes.js';
 
 const app = express();
 
@@ -51,6 +52,8 @@ app.use('/api/locations/bulk', pingLimiter);
 
 // <-- SWAGGER ROUTE -->
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.use('/api/v1/test', testRoutes);
 
 // <-- MOUNT ALL APP ROUTES -->
 app.use('/api/auth', authRoutes);
